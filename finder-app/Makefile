@@ -1,5 +1,3 @@
-# CROSS_COMPILE := aarch64-none-linux-gnu-
-
 writer : writer.o
 ifeq ($(CROSS_COMPILE), aarch64-none-linux-gnu-)
 	@echo "Cross compiling... \n"
