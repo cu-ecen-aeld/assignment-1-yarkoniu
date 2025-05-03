@@ -31,21 +31,23 @@ bool do_system(const char *cmd)
             WEXITSTATUS(result) == 0);  // Will be true if cmd ran successfuly (assuming it returns 0 on success)
 }
 
-
-bool exec_command(char ** command) {
+bool exec_command(char ** command, int fd) {
     int pid = fork();
-
     if (pid == 0) {         // child process
+        if (fd != 1) {
+            if (dup2(fd, 1) < 0) {
+                return false;
+            }
+            close(fd);
+        }
         execv(command[0], command);
         exit(errno);        // Execv failed to execute
     }
-
     int result;
     return (pid == wait(&result) &&
             WIFEXITED(result) &&
             WEXITSTATUS(result) == 0);
 }
-
 
 /**
 * @param count -The numbers of variables passed to the function. The variables are command to execute.
@@ -82,7 +84,7 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-    return exec_command(command);
+    return exec_command(command, 1);
 }
 
 /**
@@ -114,7 +116,6 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     if (fd < 0) {
         return false;
     }
-    int result = dup2(fd, 1) >= 0 && exec_command(command); 
-    close(fd);
+    int result = exec_command(command, fd);
     return result;
 }
