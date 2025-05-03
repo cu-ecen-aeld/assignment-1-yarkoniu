@@ -1,3 +1,10 @@
+#include <errno.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "systemcalls.h"
 
 /**
@@ -9,16 +16,36 @@
 */
 bool do_system(const char *cmd)
 {
-
 /*
  * TODO  add your code here
  *  Call the system() function with the command set in the cmd
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-
-    return true;
+    if (cmd == NULL) {
+        return false;
+    }
+    int result = system(cmd);
+    return (result != -1 &&             // system return -1 in case of execution error
+            WIFEXITED(result) &&        // Will be false if the the command wasn't ended normally
+            WEXITSTATUS(result) == 0);  // Will be true if cmd ran successfuly (assuming it returns 0 on success)
 }
+
+
+bool exec_command(char ** command) {
+    int pid = fork();
+
+    if (pid == 0) {         // child process
+        execv(command[0], command);
+        exit(errno);        // Execv failed to execute
+    }
+
+    int result;
+    return (pid == wait(&result) &&
+            WIFEXITED(result) &&
+            WEXITSTATUS(result) == 0);
+}
+
 
 /**
 * @param count -The numbers of variables passed to the function. The variables are command to execute.
@@ -45,10 +72,7 @@ bool do_exec(int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
-
+    va_end(args);
 /*
  * TODO:
  *   Execute a system command by calling fork, execv(),
@@ -58,10 +82,7 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
-    va_end(args);
-
-    return true;
+    return exec_command(command);
 }
 
 /**
@@ -80,10 +101,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
-
+    va_end(args);
 
 /*
  * TODO
@@ -92,8 +110,11 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
-
-    va_end(args);
-
-    return true;
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if (fd < 0) {
+        return false;
+    }
+    int result = dup2(fd, 1) >= 0 && exec_command(command); 
+    close(fd);
+    return result;
 }
